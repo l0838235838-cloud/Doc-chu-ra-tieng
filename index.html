@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8"/>
+  <title>Đọc chữ dán vào - Long</title>
+  <style>
+    body { font-family: system-ui, Arial; padding: 20px; max-width: 760px; margin: auto; }
+    textarea { width:100%; height:240px; font-size:16px; padding:10px; }
+    .controls { margin-top:10px; display:flex; gap:8px; align-items:center; flex-wrap:wrap }
+    select, button, input { padding:8px 10px; font-size:14px; }
+  </style>
+</head>
+<body>
+  <h1>Ứng dụng đọc văn bản</h1>
+  <p>Dán chữ vào ô dưới rồi bấm <b>Đọc</b>. Chọn giọng / tốc độ / âm lượng.</p>
+
+  <textarea id="txt" placeholder="Dán văn bản ở đây...">Xin chào Long — đây là thử nghiệm đọc tiếng Việt.</textarea>
+
+  <div class="controls">
+    <label>Giọng:
+      <select id="voice"></select>
+    </label>
+
+    <label>Tốc độ:
+      <input id="rate" type="range" min="0.5" max="2" step="0.1" value="1"/>
+    </label>
+
+    <label>Âm lượng:
+      <input id="vol" type="range" min="0" max="1" step="0.1" value="1"/>
+    </label>
+
+    <button id="btnSpeak">Đọc</button>
+    <button id="btnPause">Tạm dừng</button>
+    <button id="btnResume">Tiếp tục</button>
+    <button id="btnStop">Dừng</button>
+  </div>
+
+  <script>
+    const txt = document.getElementById('txt');
+    const voiceSelect = document.getElementById('voice');
+    const rate = document.getElementById('rate');
+    const vol = document.getElementById('vol');
+    const btnSpeak = document.getElementById('btnSpeak');
+    const btnPause = document.getElementById('btnPause');
+    const btnResume = document.getElementById('btnResume');
+    const btnStop = document.getElementById('btnStop');
+
+    let synth = window.speechSynthesis;
+    let voices = [];
+
+    function populateVoices() {
+      voices = synth.getVoices();
+      voiceSelect.innerHTML = '';
+      voices.forEach((v, i) => {
+        const opt = document.createElement('option');
+        opt.value = i;
+        opt.textContent = `${v.name} — ${v.lang}`;
+        voiceSelect.appendChild(opt);
+      });
+      // chọn giọng việt nếu có
+      const viIndex = voices.findIndex(v => v.lang && v.lang.startsWith('vi'));
+      if (viIndex >= 0) voiceSelect.value = viIndex;
+    }
+
+    populateVoices();
+    if (speechSynthesis.onvoiceschanged !== undefined) {
+      speechSynthesis.onvoiceschanged = populateVoices;
+    }
+
+    function speak() {
+      if (synth.speaking) synth.cancel();
+      const text = txt.value.trim();
+      if (!text) return;
+      const u = new SpeechSynthesisUtterance(text);
+      const v = voices[voiceSelect.value];
+      if (v) u.voice = v;
+      u.rate = parseFloat(rate.value);
+      u.volume = parseFloat(vol.value);
+      u.onend = () => console.log('Đã đọc xong');
+      u.onerror = (e) => console.error('Lỗi TTS', e);
+      synth.speak(u);
+    }
+
+    btnSpeak.addEventListener('click', speak);
+    btnPause.addEventListener('click', () => {
+      if (synth.speaking && !synth.paused) synth.pause();
+    });
+    btnResume.addEventListener('click', () => {
+      if (synth.paused) synth.resume();
+    });
+    btnStop.addEventListener('click', () => {
+      if (synth.speaking) synth.cancel();
+    });
+  </script>
+</body>
+</html>
