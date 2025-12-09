@@ -113,49 +113,6 @@
       justify-content: center;
       font-size: 16px;
     }
-    .chip {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      padding: 4px 10px;
-      border-radius: 999px;
-      border: 1px solid rgba(148,163,184,0.3);
-      font-size: 12px;
-      color: #e5e7eb;
-    }
-    .section {
-      margin-top: 14px;
-    }
-    ul.list {
-      list-style: none;
-      padding: 0;
-      margin: 10px 0 0;
-      max-height: 320px;
-      overflow-y: auto;
-    }
-    .list-item {
-      padding: 8px 10px;
-      border-radius: 10px;
-      border: 1px solid transparent;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 8px;
-      cursor: pointer;
-      transition: 0.15s ease;
-    }
-    .list-item:hover {
-      background: rgba(15,23,42,0.9);
-      border-color: rgba(148,163,184,0.45);
-    }
-    .list-item-title {
-      font-size: 14px;
-      font-weight: 500;
-    }
-    .list-item-sub {
-      font-size: 12px;
-      color: var(--muted);
-    }
     .tag {
       font-size: 11px;
       padding: 2px 8px;
@@ -249,9 +206,18 @@
     <div id="screen-library" class="screen active section">
       <div class="between">
         <h2>📚 Thư viện truyện</h2>
-        <button class="btn btn-primary" id="btn-add-story">+ Thêm truyện</button>
+        <div class="row">
+          <button class="btn btn-outline" id="btn-backup">📤 Sao lưu</button>
+          <button class="btn btn-outline" id="btn-restore">📥 Khôi phục</button>
+          <button class="btn btn-primary" id="btn-add-story">+ Thêm truyện</button>
+        </div>
       </div>
-      <div class="muted" style="margin-top:4px;font-size:12px">
+      <div id="continue-bar" class="muted" style="margin-top:6px;display:none">
+        <b>Tiếp tục đọc:</b>
+        <span id="continue-text"></span>
+        <button class="btn btn-outline" id="btn-continue-read" style="margin-left:6px;">Mở lại</button>
+      </div>
+      <div class="muted" style="margin-top:6px;font-size:12px">
         Mỗi truyện có nhiều chương. Long có thể tạo nhiều truyện khác nhau (tu tiên, ngôn tình, hệ thống...).
       </div>
       <ul id="story-list" class="list"></ul>
@@ -362,10 +328,19 @@ Chương 96: Một trăm triệu sang tay
           <button class="btn btn-outline" id="btn-pause">⏸ Tạm dừng</button>
           <button class="btn btn-outline" id="btn-resume">⏯ Tiếp tục</button>
           <button class="btn btn-outline" id="btn-stop">⏹ Dừng</button>
+          <button class="btn btn-outline" id="btn-back-10">⏪ Lùi 10%</button>
+          <button class="btn btn-outline" id="btn-forward-10">⏩ Tới 10%</button>
         </div>
-        <div class="controls" style="margin-top:10px">
+        <div class="controls">
+          <div class="range-row">
+            <span>Tiến độ</span>
+            <input type="range" id="progress-range" min="0" max="100" step="1" value="0">
+            <span id="progress-label">0%</span>
+          </div>
+        </div>
+        <div class="controls">
           <div class="field" style="flex:1 1 160px;margin-top:0">
-            <label>Giọng đọc (tùy giọng có sẵn trong iPhone)</label>
+            <label>Giọng đọc (tiếng Việt trên máy Long)</label>
             <select id="voice-select"></select>
           </div>
         </div>
@@ -390,11 +365,11 @@ Chương 96: Một trăm triệu sang tay
 
 <script>
 (function() {
-  const STORAGE_KEY = 'truyen_audio_v1';
+  const STORAGE_KEY = 'truyen_audio_v2';
 
   let state = {
-    stories: [],      // {id, title, createdAt}
-    chapters: [],     // {id, storyId, number, title, content, createdAt}
+    stories: [],
+    chapters: [],
     currentStoryId: null,
     currentChapterId: null
   };
@@ -433,6 +408,9 @@ Chương 96: Một trăm triệu sang tay
 
   const storyListEl   = document.getElementById('story-list');
   const emptyLibrary  = document.getElementById('empty-library');
+  const continueBar   = document.getElementById('continue-bar');
+  const continueText  = document.getElementById('continue-text');
+  const btnContinue   = document.getElementById('btn-continue-read');
 
   const chapterListEl = document.getElementById('chapter-list');
   const emptyChapters = document.getElementById('empty-chapters');
@@ -464,14 +442,39 @@ Chương 96: Một trăm triệu sang tay
     else if (name === 'reader') screenReader.classList.add('active');
   }
 
+  function getStoryById(id) {
+    return state.stories.find(s => s.id === id);
+  }
+  function getChapterById(id) {
+    return state.chapters.find(ch => ch.id === id);
+  }
+
+  function renderContinueBar() {
+    if (!state.currentStoryId || !state.currentChapterId) {
+      continueBar.style.display = 'none';
+      return;
+    }
+    const story = getStoryById(state.currentStoryId);
+    const ch = getChapterById(state.currentChapterId);
+    if (!story || !ch) {
+      continueBar.style.display = 'none';
+      return;
+    }
+    const num = ch.number != null ? `Chương ${ch.number}` : 'Chương';
+    const fullTitle = ch.title ? `${num}: ${ch.title}` : num;
+    continueText.textContent = `${story.title} – ${fullTitle}`;
+    continueBar.style.display = 'block';
+  }
+
   function renderLibrary() {
     storyListEl.innerHTML = '';
     const stories = [...state.stories].sort((a,b) => a.title.localeCompare(b.title, 'vi'));
     if (!stories.length) {
       emptyLibrary.style.display = 'block';
-      return;
+    } else {
+      emptyLibrary.style.display = 'none';
     }
-    emptyLibrary.style.display = 'none';
+    renderContinueBar();
     stories.forEach(story => {
       const li = document.createElement('li');
       li.className = 'list-item';
@@ -510,7 +513,7 @@ Chương 96: Một trăm triệu sang tay
   function openStory(storyId) {
     state.currentStoryId = storyId;
     saveState();
-    const story = state.stories.find(s => s.id === storyId);
+    const story = getStoryById(storyId);
     if (!story) return;
     crumbStoryTitle.textContent = story.title;
     storyTitleDisplay.textContent = story.title;
@@ -573,6 +576,7 @@ Chương 96: Một trăm triệu sang tay
           }
           saveState();
           renderChapters();
+          renderLibrary();
         }
       };
 
@@ -599,7 +603,7 @@ Chương 96: Một trăm triệu sang tay
     chapterForm.style.display = 'block';
   }
   function startEditChapter(chapterId) {
-    const ch = state.chapters.find(c => c.id === chapterId);
+    const ch = getChapterById(chapterId);
     if (!ch) return;
     editingChapterId = chapterId;
     chapterFormTitle.textContent = 'Sửa chương';
@@ -624,7 +628,7 @@ Chương 96: Một trăm triệu sang tay
     }
     const number = numStr ? parseInt(numStr, 10) : null;
     if (editingChapterId) {
-      const ch = state.chapters.find(c => c.id === editingChapterId);
+      const ch = getChapterById(editingChapterId);
       if (ch) {
         ch.number = isNaN(number) ? null : number;
         ch.title = title;
@@ -643,6 +647,7 @@ Chương 96: Một trăm triệu sang tay
     saveState();
     chapterForm.style.display = 'none';
     renderChapters();
+    renderLibrary();
   }
 
   function startBulk() {
@@ -729,6 +734,7 @@ Chương 96: Một trăm triệu sang tay
     saveState();
     bulkForm.style.display = 'none';
     renderChapters();
+    renderLibrary();
   }
 
   function addStory() {
@@ -745,7 +751,7 @@ Chương 96: Một trăm triệu sang tay
   function deleteCurrentStory() {
     const storyId = state.currentStoryId;
     if (!storyId) return;
-    const story = state.stories.find(s => s.id === storyId);
+    const story = getStoryById(storyId);
     if (!confirm(`Xóa truyện "${story ? story.title : ''}" và toàn bộ chương?`)) return;
     state.chapters = state.chapters.filter(ch => ch.storyId !== storyId);
     state.stories = state.stories.filter(s => s.id !== storyId);
@@ -756,19 +762,30 @@ Chương 96: Một trăm triệu sang tay
     showScreen('library');
   }
 
-  // Reader + TTS
+  // TTS + điều khiển
   const voiceSelect = document.getElementById('voice-select');
   const rateRange = document.getElementById('rate-range');
   const rateLabel = document.getElementById('rate-label');
   const volRange  = document.getElementById('vol-range');
   const volLabel  = document.getElementById('vol-label');
+  const progressRange = document.getElementById('progress-range');
+  const progressLabel = document.getElementById('progress-label');
 
   let voices = [];
   let synth = window.speechSynthesis;
   let currentUtterance = null;
+  let currentChapterText = '';
+  let currentCharIndex = 0;
 
   function loadVoices() {
-    voices = synth.getVoices();
+    const all = synth.getVoices();
+    // chỉ lấy giọng tiếng Việt nếu có
+    const viOnly = all.filter(v =>
+      (v.lang && v.lang.toLowerCase().startsWith('vi')) ||
+      (v.name && /viet/i.test(v.name))
+    );
+    voices = viOnly.length ? viOnly : all;
+
     voiceSelect.innerHTML = '';
     voices.forEach((v, idx) => {
       const opt = document.createElement('option');
@@ -776,7 +793,7 @@ Chương 96: Một trăm triệu sang tay
       opt.textContent = `${v.name} — ${v.lang}`;
       voiceSelect.appendChild(opt);
     });
-    // cố gắng chọn giọng vi-VN nếu có
+
     const viIndex = voices.findIndex(v => v.lang && v.lang.toLowerCase().startsWith('vi'));
     if (viIndex >= 0) voiceSelect.value = viIndex;
   }
@@ -786,11 +803,16 @@ Chương 96: Một trăm triệu sang tay
   }
   setTimeout(loadVoices, 400);
 
-  function getChapterById(id) {
-    return state.chapters.find(ch => ch.id === id);
-  }
-  function getStoryById(id) {
-    return state.stories.find(s => s.id === id);
+  function updateProgress() {
+    if (!currentChapterText) {
+      progressRange.value = 0;
+      progressLabel.textContent = '0%';
+      return;
+    }
+    const len = currentChapterText.length || 1;
+    const pct = Math.min(100, Math.max(0, Math.round(currentCharIndex / len * 100)));
+    progressRange.value = pct;
+    progressLabel.textContent = pct + '%';
   }
 
   function openReader(chapterId) {
@@ -801,7 +823,6 @@ Chương 96: Một trăm triệu sang tay
     saveState();
 
     const story = getStoryById(ch.storyId);
-
     const num = ch.number != null ? `Chương ${ch.number}` : 'Chương';
     const fullTitle = ch.title ? `${num}: ${ch.title}` : num;
     readerChapterTitle.textContent = fullTitle;
@@ -809,9 +830,12 @@ Chương 96: Một trăm triệu sang tay
     readerChapterSub.textContent = story ? story.title : '';
     readerStoryLink.textContent = story ? story.title : '';
 
-    readerTextEl.textContent = ch.content || '';
-
+    currentChapterText = ch.content || '';
+    currentCharIndex = 0;
+    readerTextEl.textContent = currentChapterText;
+    updateProgress();
     showScreen('reader');
+    renderLibrary(); // cập nhật thanh "Đang đọc"
   }
 
   function changeChapter(delta) {
@@ -835,27 +859,40 @@ Chương 96: Một trăm triệu sang tay
       alert('Chưa chọn chương nào.');
       return;
     }
-    if (synth.speaking) {
-      synth.cancel();
+    if (!currentChapterText) {
+      currentChapterText = ch.content || '';
     }
-    const text = ch.content || '';
+    const text = currentChapterText || '';
     if (!text.trim()) {
       alert('Chương này chưa có nội dung.');
       return;
     }
-    const utter = new SpeechSynthesisUtterance(text);
+    if (synth.speaking) {
+      synth.cancel();
+    }
+
+    const utterStartIndex = currentCharIndex;
+    const utter = new SpeechSynthesisUtterance(text.slice(utterStartIndex));
     const v = voices[parseInt(voiceSelect.value, 10)];
     if (v) utter.voice = v;
     utter.rate = parseFloat(rateRange.value);
     utter.volume = parseFloat(volRange.value);
+
+    utter.onboundary = (event) => {
+      if (typeof event.charIndex === 'number') {
+        currentCharIndex = utterStartIndex + event.charIndex;
+        updateProgress();
+      }
+    };
     utter.onend = () => {
-      console.log('Đọc xong chương');
-      // tự chuyển chương tiếp theo
+      currentCharIndex = 0;
+      updateProgress();
       changeChapter(+1);
-      // tự bắt đầu đọc chương tiếp theo nếu muốn:
+      // nếu muốn tự đọc chương kế tiếp thì mở dòng dưới:
       // setTimeout(speakCurrent, 500);
     };
     utter.onerror = (e) => console.error('Lỗi TTS', e);
+
     currentUtterance = utter;
     synth.speak(utter);
   }
@@ -868,6 +905,52 @@ Chương 96: Một trăm triệu sang tay
   }
   function stopSpeaking() {
     if (synth.speaking || synth.paused) synth.cancel();
+    currentCharIndex = 0;
+    updateProgress();
+  }
+
+  function jumpRelativePortion(deltaRatio) {
+    if (!currentChapterText) return;
+    const len = currentChapterText.length;
+    if (!len) return;
+    let newIndex = currentCharIndex + Math.round(len * deltaRatio);
+    if (newIndex < 0) newIndex = 0;
+    if (newIndex > len - 1) newIndex = len - 1;
+    currentCharIndex = newIndex;
+    updateProgress();
+    if (synth.speaking || synth.paused) {
+      synth.cancel();
+      speakCurrent();
+    }
+  }
+
+  // sao lưu / khôi phục
+  function backupData() {
+    try {
+      const data = JSON.stringify(state);
+      const encoded = btoa(unescape(encodeURIComponent(data)));
+      prompt("Sao chép toàn bộ mã sao lưu (dán vào Ghi chú/Zalo để lưu):", encoded);
+    } catch(e) {
+      alert('Không thể sao lưu: ' + e.message);
+    }
+  }
+  function restoreData() {
+    const encoded = prompt("Dán mã sao lưu vào đây để khôi phục:");
+    if (!encoded) return;
+    try {
+      const json = decodeURIComponent(escape(atob(encoded)));
+      const imported = JSON.parse(json);
+      if (imported && imported.stories && imported.chapters) {
+        state = imported;
+        saveState();
+        alert("Khôi phục thành công! App sẽ tải lại.");
+        location.reload();
+      } else {
+        alert("Sai định dạng, không thể khôi phục.");
+      }
+    } catch(e) {
+      alert("Mã sao lưu không hợp lệ.");
+    }
   }
 
   // Event bindings
@@ -893,6 +976,21 @@ Chương 96: Một trăm triệu sang tay
   document.getElementById('btn-prev-chapter').onclick = () => changeChapter(-1);
   document.getElementById('btn-next-chapter').onclick = () => changeChapter(+1);
 
+  document.getElementById('btn-back-10').onclick = () => jumpRelativePortion(-0.1);
+  document.getElementById('btn-forward-10').onclick = () => jumpRelativePortion(0.1);
+
+  progressRange.onchange = () => {
+    if (!currentChapterText) return;
+    const len = currentChapterText.length;
+    const pct = parseInt(progressRange.value, 10) / 100;
+    currentCharIndex = Math.round(len * pct);
+    updateProgress();
+    if (synth.speaking || synth.paused) {
+      synth.cancel();
+      speakCurrent();
+    }
+  };
+
   rateRange.oninput = () => {
     rateLabel.textContent = rateRange.value + 'x';
   };
@@ -900,14 +998,18 @@ Chương 96: Một trăm triệu sang tay
     volLabel.textContent = Math.round(parseFloat(volRange.value) * 100) + '%';
   };
 
+  document.getElementById('btn-backup').onclick = backupData;
+  document.getElementById('btn-restore').onclick = restoreData;
+
+  btnContinue.onclick = () => {
+    if (state.currentChapterId) {
+      openReader(state.currentChapterId);
+    }
+  };
+
   // Init
   loadState();
   renderLibrary();
-  if (state.currentStoryId && state.currentChapterId) {
-    // Nếu Long đang đọc dở thì có thể mở lại story/chapter sau:
-    // openStory(state.currentStoryId);
-    // openReader(state.currentChapterId);
-  }
 })();
 </script>
 </body>
