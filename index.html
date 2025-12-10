@@ -181,11 +181,32 @@
       cursor: pointer;
       text-decoration: underline;
     }
+    ul.list {
+      list-style: none;
+      padding: 0;
+      margin: 10px 0 0;
+    }
+    .list-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 6px;
+      border-radius: 10px;
+      border: 1px solid rgba(148,163,184,0.24);
+      margin-bottom: 6px;
+      background: rgba(15,23,42,0.9);
+    }
+    .list-item-title { font-size: 14px; }
+    .list-item-sub { font-size: 12px; color: var(--muted); }
+    .list-item > div:first-child { flex: 1; min-width: 0; }
+    .list-item > div:last-child { display: flex; gap: 6px; }
     @media (max-width: 640px) {
       #app { padding-inline: 10px; }
       .card { padding: 12px; }
       .controls { flex-direction: column; align-items: stretch; }
       .between { flex-direction: column; align-items: flex-start; }
+      .list-item { flex-direction: column; align-items: flex-start; gap: 6px; }
+      .list-item > div:last-child { align-self: stretch; justify-content: flex-start; flex-wrap: wrap; }
     }
   </style>
 </head>
@@ -204,7 +225,7 @@
 
     <!-- SCREEN: LIBRARY -->
     <div id="screen-library" class="screen active section">
-      <div class="between">
+      <div class="between" style="margin-top:6px">
         <h2>📚 Thư viện truyện</h2>
         <div class="row">
           <button class="btn btn-outline" id="btn-backup">📤 Sao lưu</button>
@@ -316,10 +337,6 @@ Chương 96: Một trăm triệu sang tay
           <h2 id="reader-chapter-title">Chương</h2>
           <div id="reader-chapter-sub" class="muted" style="font-size:12px"></div>
         </div>
-        <div class="row">
-          <button class="btn btn-outline" id="btn-prev-chapter">⟵ Trước</button>
-          <button class="btn btn-outline" id="btn-next-chapter">Sau ⟶</button>
-        </div>
       </div>
 
       <div class="section">
@@ -328,6 +345,8 @@ Chương 96: Một trăm triệu sang tay
           <button class="btn btn-outline" id="btn-pause">⏸ Tạm dừng</button>
           <button class="btn btn-outline" id="btn-resume">⏯ Tiếp tục</button>
           <button class="btn btn-outline" id="btn-stop">⏹ Dừng</button>
+          <button class="btn btn-outline" id="btn-prev-chapter">⟵ Chương trước</button>
+          <button class="btn btn-outline" id="btn-next-chapter">Chương sau ⟶</button>
           <button class="btn btn-outline" id="btn-back-10">⏪ Lùi 10%</button>
           <button class="btn btn-outline" id="btn-forward-10">⏩ Tới 10%</button>
         </div>
@@ -347,8 +366,8 @@ Chương 96: Một trăm triệu sang tay
         <div class="controls">
           <div class="range-row">
             <span>Tốc độ</span>
-            <input type="range" id="rate-range" min="0.7" max="1.6" step="0.05" value="1">
-            <span id="rate-label">1.0x</span>
+            <input type="range" id="rate-range" min="0.7" max="1.6" step="0.05" value="1.2">
+            <span id="rate-label">1.2x</span>
           </div>
           <div class="range-row">
             <span>Âm lượng</span>
@@ -496,11 +515,7 @@ Chương 96: Một trăm triệu sang tay
       const right = document.createElement('div');
       const tag = document.createElement('span');
       tag.className = 'tag';
-      if (state.currentStoryId === story.id) {
-        tag.textContent = 'Đang đọc';
-      } else {
-        tag.textContent = 'Truyện';
-      }
+      tag.textContent = (state.currentStoryId === story.id) ? 'Đang đọc' : 'Truyện';
       right.appendChild(tag);
 
       li.appendChild(left);
@@ -571,9 +586,7 @@ Chương 96: Một trăm triệu sang tay
         e.stopPropagation();
         if (confirm('Xóa chương này?')) {
           state.chapters = state.chapters.filter(c => c.id !== ch.id);
-          if (state.currentChapterId === ch.id) {
-            state.currentChapterId = null;
-          }
+          if (state.currentChapterId === ch.id) state.currentChapterId = null;
           saveState();
           renderChapters();
           renderLibrary();
@@ -762,7 +775,7 @@ Chương 96: Một trăm triệu sang tay
     showScreen('library');
   }
 
-  // TTS + điều khiển
+  // === TTS + điều khiển ===
   const voiceSelect = document.getElementById('voice-select');
   const rateRange = document.getElementById('rate-range');
   const rateLabel = document.getElementById('rate-label');
@@ -779,7 +792,6 @@ Chương 96: Một trăm triệu sang tay
 
   function loadVoices() {
     const all = synth.getVoices();
-    // chỉ lấy giọng tiếng Việt nếu có
     const viOnly = all.filter(v =>
       (v.lang && v.lang.toLowerCase().startsWith('vi')) ||
       (v.name && /viet/i.test(v.name))
@@ -815,6 +827,48 @@ Chương 96: Một trăm triệu sang tay
     progressLabel.textContent = pct + '%';
   }
 
+  // Media Session (tai nghe / thanh điều khiển hệ thống)
+  function updateMediaSession() {
+    if (!('mediaSession' in navigator)) return;
+
+    const ch = getChapterById(state.currentChapterId);
+    const story = getStoryById(state.currentStoryId);
+    if (!ch || !story) return;
+
+    const num = ch.number != null ? `Chương ${ch.number}` : 'Chương';
+    const fullTitle = ch.title ? `${num}: ${ch.title}` : num;
+
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title: fullTitle,
+      artist: story.title,
+      album: 'Truyện Audio'
+    });
+
+    navigator.mediaSession.setActionHandler('play', () => {
+      speakCurrent();
+    });
+    navigator.mediaSession.setActionHandler('pause', () => {
+      pauseSpeaking();
+    });
+    navigator.mediaSession.setActionHandler('stop', () => {
+      stopSpeaking();
+    });
+    navigator.mediaSession.setActionHandler('nexttrack', () => {
+      const moved = changeChapter(+1);
+      if (moved) speakCurrent();
+    });
+    navigator.mediaSession.setActionHandler('previoustrack', () => {
+      const moved = changeChapter(-1);
+      if (moved) speakCurrent();
+    });
+    navigator.mediaSession.setActionHandler('seekbackward', () => {
+      jumpRelativePortion(-0.1);
+    });
+    navigator.mediaSession.setActionHandler('seekforward', () => {
+      jumpRelativePortion(0.1);
+    });
+  }
+
   function openReader(chapterId) {
     const ch = getChapterById(chapterId);
     if (!ch) return;
@@ -835,22 +889,24 @@ Chương 96: Một trăm triệu sang tay
     readerTextEl.textContent = currentChapterText;
     updateProgress();
     showScreen('reader');
-    renderLibrary(); // cập nhật thanh "Đang đọc"
+    renderLibrary();
+    updateMediaSession();
   }
 
   function changeChapter(delta) {
     const currentId = state.currentChapterId;
     const storyId = state.currentStoryId;
-    if (!currentId || !storyId) return;
+    if (!currentId || !storyId) return false;
     const chapters = state.chapters
       .filter(ch => ch.storyId === storyId)
       .sort((a,b) => (a.number || 0) - (b.number || 0) || a.createdAt - b.createdAt);
     const idx = chapters.findIndex(ch => ch.id === currentId);
-    if (idx < 0) return;
+    if (idx < 0) return false;
     const nextIdx = idx + delta;
-    if (nextIdx < 0 || nextIdx >= chapters.length) return;
+    if (nextIdx < 0 || nextIdx >= chapters.length) return false;
     stopSpeaking();
     openReader(chapters[nextIdx].id);
+    return true;
   }
 
   function speakCurrent() {
@@ -885,15 +941,17 @@ Chương 96: Một trăm triệu sang tay
       }
     };
     utter.onend = () => {
-  currentCharIndex = 0;
-  updateProgress();
-  changeChapter(+1);
-  // tự động đọc chương kế tiếp
-  setTimeout(speakCurrent, 500);
-};
+      currentCharIndex = 0;
+      updateProgress();
+      const moved = changeChapter(+1);
+      if (moved) {
+        setTimeout(speakCurrent, 500); // tự đọc chương kế tiếp
+      }
+    };
     utter.onerror = (e) => console.error('Lỗi TTS', e);
 
     currentUtterance = utter;
+    updateMediaSession();
     synth.speak(utter);
   }
 
@@ -956,8 +1014,17 @@ Chương 96: Một trăm triệu sang tay
   // Event bindings
   document.getElementById('btn-add-story').onclick = addStory;
   document.getElementById('nav-to-library').onclick = () => { showScreen('library'); renderLibrary(); };
-  document.getElementById('nav-reader-to-library').onclick = () => { stopSpeaking(); showScreen('library'); renderLibrary(); };
-  document.getElementById('nav-reader-to-story').onclick = () => { stopSpeaking(); showScreen('story'); renderChapters(); };
+
+  document.getElementById('nav-reader-to-library').onclick = () => {
+    stopSpeaking();
+    showScreen('library');
+    renderLibrary();
+  };
+  document.getElementById('nav-reader-to-story').onclick = () => {
+    stopSpeaking();
+    showScreen('story');
+    renderChapters();
+  };
 
   document.getElementById('btn-add-chapter').onclick = startAddChapter;
   document.getElementById('btn-save-chapter').onclick = saveChapterForm;
@@ -1010,6 +1077,8 @@ Chương 96: Một trăm triệu sang tay
   // Init
   loadState();
   renderLibrary();
+  rateLabel.textContent = rateRange.value + 'x';
+  volLabel.textContent = Math.round(parseFloat(volRange.value) * 100) + '%';
 })();
 </script>
 </body>
