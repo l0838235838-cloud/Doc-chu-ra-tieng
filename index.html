@@ -884,13 +884,13 @@ Chương 96: Một trăm triệu sang tay
         updateProgress();
       }
     };
-    utter.onend = () => {
-      currentCharIndex = 0;
-      updateProgress();
-      changeChapter(+1);
-      // nếu muốn tự đọc chương kế tiếp thì mở dòng dưới:
-      // setTimeout(speakCurrent, 500);
-    };
+   utter.onend = () => {
+  currentCharIndex = 0;
+  updateProgress();
+  changeChapter(+1);
+  // tự động đọc chương kế tiếp
+  setTimeout(speakCurrent, 500);
+};
     utter.onerror = (e) => console.error('Lỗi TTS', e);
 
     currentUtterance = utter;
