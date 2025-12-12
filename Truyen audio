@@ -1,40 +1,23 @@
-plugins {
-    id 'com.android.application'
-    id 'kotlin-android'
-}
+// Project-level build.gradle
 
-android {
-    compileSdk 33
-
-    defaultConfig {
-        applicationId "com.long.truyenaudio"
-        minSdk 21
-        targetSdk 33
-        versionCode 1
-        versionName "1.0"
+buildscript {
+    repositories {
+        google()
+        mavenCentral()
     }
-
-    buildTypes {
-        release {
-            minifyEnabled false
-            proguardFiles getDefaultProguardFile(
-                'proguard-android-optimize.txt'
-            ), 'proguard-rules.pro'
-        }
-    }
-
-    compileOptions {
-        sourceCompatibility JavaVersion.VERSION_1_8
-        targetCompatibility JavaVersion.VERSION_1_8
-    }
-
-    kotlinOptions {
-        jvmTarget = '1.8'
+    dependencies {
+        classpath "com.android.tools.build:gradle:7.2.2"
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:1.7.10"
     }
 }
 
-dependencies {
-    implementation "androidx.core:core-ktx:1.9.0"
-    implementation "androidx.appcompat:appcompat:1.6.1"
-    implementation "com.google.android.material:material:1.9.0"
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
+task clean(type: Delete) {
+    delete rootProject.buildDir
 }
