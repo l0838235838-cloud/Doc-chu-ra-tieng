@@ -1,50 +1,22 @@
-package com.long.truyenaudio
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.long.truyenaudio">
 
-import android.os.Bundle
-import android.widget.TextView
-import androidx.appcompat.app.AppCompatActivity
-import java.io.BufferedReader
-import java.io.InputStreamReader
-import java.net.HttpURLConnection
-import java.net.URL
-import kotlin.concurrent.thread
+    <uses-permission android:name="android.permission.INTERNET"/>
 
-class MainActivity : AppCompatActivity() {
+    <application
+        android:allowBackup="true"
+        android:label="Truyện Audio"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.AppCompat.Light.NoActionBar">
 
-    private lateinit var textView: TextView
+        <activity android:name=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+        </activity>
 
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
+    </application>
 
-        textView = findViewById(R.id.textView)
-        textView.text = "Đang tải truyện..."
-
-        loadStoryFromWeb()
-    }
-
-    private fun loadStoryFromWeb() {
-        thread {
-            try {
-                val url = URL("https://jsonplaceholder.typicode.com/posts/1")
-                val conn = url.openConnection() as HttpURLConnection
-                conn.requestMethod = "GET"
-                conn.connectTimeout = 15000
-                conn.readTimeout = 15000
-
-                val reader = BufferedReader(InputStreamReader(conn.inputStream))
-                val result = reader.readText()
-                reader.close()
-                conn.disconnect()
-
-                runOnUiThread {
-                    textView.text = result
-                }
-            } catch (e: Exception) {
-                runOnUiThread {
-                    textView.text = "Lỗi: ${e.message}"
-                }
-            }
-        }
-    }
-}
+</manifest>
