@@ -1,15 +1,30 @@
-<?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:padding="16dp">
+package com.long.truyenaudio
 
-    <TextView
-        android:id="@+id/textView"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Nội dung truyện sẽ hiển thị ở đây"
-        android:textSize="16sp"/>
+import android.os.Bundle
+import android.widget.TextView
+import androidx.appcompat.app.AppCompatActivity
+import java.net.URL
+import kotlin.concurrent.thread
 
-</LinearLayout>
+class MainActivity : AppCompatActivity() {
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContentView(R.layout.activity_main)
+
+        val textView = findViewById<TextView>(R.id.textView)
+
+        thread {
+            try {
+                val content = URL("https://www.example.com").readText()
+                runOnUiThread {
+                    textView.text = content
+                }
+            } catch (e: Exception) {
+                runOnUiThread {
+                    textView.text = "Lỗi tải truyện"
+                }
+            }
+        }
+    }
+}
